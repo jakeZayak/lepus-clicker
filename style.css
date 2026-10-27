@@ -21,7 +21,15 @@ html, body {
   color: var(--text);
   font-family: "Pixelify Sans", ui-monospace, monospace;
   overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+@supports (height: 100dvh) {
+  html, body { height: 100dvh; }
 }
 
 button { font: inherit; color: inherit; cursor: pointer; }
@@ -41,7 +49,7 @@ img { image-rendering: pixelated; }
   grid-template-areas: "hud hud" "play shop";
   height: 100%;
   gap: 8px;
-  padding: 8px;
+  padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
 }
 
 /* HUD */
@@ -194,7 +202,7 @@ dialog#menu h2 { margin: 0 0 6px; color: var(--gold); }
 
 /* Mobile: shop becomes a bottom tray */
 @media (max-width: 899px) {
-  #app { grid-template-columns: 1fr; grid-template-areas: "hud" "play"; padding: 6px; gap: 6px; padding-bottom: 62px; }
+  #app { grid-template-columns: 1fr; grid-template-areas: "hud" "play"; gap: 6px; padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) calc(62px + env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left)); }
   #hud { gap: 10px; padding: 6px 10px; flex-wrap: wrap; }
   .stat.main b { font-size: 24px; }
   .stat b { font-size: 16px; }
@@ -202,11 +210,12 @@ dialog#menu h2 { margin: 0 0 6px; color: var(--gold); }
   .tool { width: 34px; height: 34px; font-size: 15px; }
   #shop {
     position: fixed;
-    left: 6px; right: 6px; bottom: 6px;
+    left: max(6px, env(safe-area-inset-left)); right: max(6px, env(safe-area-inset-right)); bottom: max(6px, env(safe-area-inset-bottom));
     height: 50px;
     padding: 0 10px;
     transition: height 0.25s;
     z-index: 5;
+    background: #222c6c;
   }
   body.shop-open #shop { height: 62vh; }
   #shop h2 { display: none; }

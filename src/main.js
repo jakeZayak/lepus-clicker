@@ -179,6 +179,8 @@ spinBtn.addEventListener("pointerdown", (e) => {
 spinBtn.addEventListener("click", (e) => {
   if (e.detail === 0) doClick(); // keyboard (Enter / Space)
 });
+// iPad/iPhone: audio may only start from these events, not pointerdown.
+for (const ev of ["pointerup", "touchend", "click"]) document.addEventListener(ev, () => sound.unlock(), { passive: true });
 
 // ---------- persistence ----------
 document.addEventListener("visibilitychange", () => {

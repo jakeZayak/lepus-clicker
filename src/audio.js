@@ -16,12 +16,21 @@ export class Sound {
   }
 
   unlock() {
-    if (this.ctx) {
-      if (this.ctx.state === "suspended") this.ctx.resume();
+    if (this.music) {
+      // iOS Safari only honours resume()/play() from touchend/click, so retry on every gesture until it sticks.
+      if (this.ctx && this.ctx.state !== "running") this.ctx.resume();
+      if (this.musicOn && this.music.paused && !document.hidden) this.music.play().catch(() => {});
       return;
     }
+    this.music = new window.Audio(MUSIC_SRC);
+    this.music.loop = true;
     const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
+    if (!AC) {
+      // No WebAudio: the theme still plays as a plain <audio> element; SFX are skipped.
+      this.music.volume = MUSIC_VOL;
+      if (this.musicOn) this.music.play().catch(() => {});
+      return;
+    }
     this.ctx = new AC();
     this.sfxGain = this.ctx.createGain();
     this.sfxGain.gain.value = this.sfxOn ? SFX_VOL : 0;
@@ -29,9 +38,6 @@ export class Sound {
     this.musicGain = this.ctx.createGain();
     this.musicGain.gain.value = this.musicOn ? MUSIC_VOL : 0;
     this.musicGain.connect(this.ctx.destination);
-
-    this.music = new window.Audio(MUSIC_SRC);
-    this.music.loop = true;
     this.ctx.createMediaElementSource(this.music).connect(this.musicGain);
     if (this.musicOn) this.music.play().catch(() => {});
 
@@ -68,9 +74,11 @@ export class Sound {
 
   setMusic(on) {
     this.musicOn = on;
-    if (!this.ctx) return;
-    this.musicGain.gain.cancelScheduledValues(this.ctx.currentTime);
-    this.musicGain.gain.value = on ? MUSIC_VOL : 0;
+    if (!this.music) return;
+    if (this.ctx) {
+      this.musicGain.gain.cancelScheduledValues(this.ctx.currentTime);
+      this.musicGain.gain.value = on ? MUSIC_VOL : 0;
+    }
     if (on) this.music.play().catch(() => {});
     else this.music.pause();
   }
@@ -82,7 +90,7 @@ export class Sound {
 
   // Pause the theme while the tab is hidden; pick it back up when it returns.
   visibility(hidden) {
-    if (!this.ctx || !this.musicOn) return;
+    if (!this.music || !this.musicOn) return;
     if (hidden) this.music.pause();
     else this.music.play().catch(() => {});
   }
