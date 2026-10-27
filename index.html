@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Lepus Clicker</title>
+  <link rel="icon" href="assets/sprites/suspicious_egg.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header id="hud" class="panel">
+      <div class="stat main"><img id="hudIcon" alt=""><span><b id="bal">0</b> Lepus</span></div>
+      <div class="stat"><span class="label">per second</span><b id="lps">0.0</b></div>
+      <div class="stat"><span class="label">per click</span><b id="clickVal">1</b></div>
+      <div class="buttons">
+        <button id="musicBtn" class="tool" aria-pressed="true" title="Music">♫</button>
+        <button id="sfxBtn" class="tool" aria-pressed="true" title="Sound effects">🔊</button>
+        <button id="menuBtn" class="tool" title="Menu">⚙</button>
+      </div>
+    </header>
+
+    <main id="play">
+      <canvas id="cv"></canvas>
+      <button id="spin" aria-label="Click the Lepus"></button>
+      <div id="legend" class="panel"></div>
+      <div id="hint">Click the Lepus!</div>
+    </main>
+
+    <aside id="shop" class="panel">
+      <button id="shopToggle"><span>Shop</span><span id="shopBadge"></span><span class="chev">▲</span></button>
+      <h2>Shop</h2>
+      <div id="shopList"></div>
+    </aside>
+  </div>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <dialog id="menu" class="panel">
+    <h2>Lepus Clicker</h2>
+    <p id="stats"></p>
+    <div class="menu-buttons">
+      <button id="saveBtn">Save now</button>
+      <button id="resetBtn" class="danger">Reset progress</button>
+      <button id="closeBtn">Close</button>
+    </div>
+    <p class="credits">Lepus sprites &amp; boss theme from the Consolaria mod. Sound effects from Terraria (Re-Logic). Personal use only.</p>
+  </dialog>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
