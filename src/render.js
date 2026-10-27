@@ -183,7 +183,7 @@ export class Renderer {
     const ents = [...yard.ents].sort((a, b) => b.tier - a.tier);
     for (const e of ents) {
       const T = TIERS[e.tier], sh = T.sprite;
-      const sc = T.scale * s;
+      const sc = yard.scaleOf(e.tier) * s;
       if (e.alpha > 0.3) {
         const air = Math.max(0, YARD.GROUND - e.y);
         g.fillStyle = `rgba(0,0,0,${0.22 * Math.max(0, 1 - air / 220) * e.alpha})`;
@@ -204,17 +204,33 @@ export class Renderer {
       ssy *= 1 - 0.2 * e.land;
       const pop = e.pop < 1 ? Math.sin(e.pop * Math.PI * 0.5) * (1 + 0.25 * Math.sin(e.pop * Math.PI)) : e.pop;
       const h = sh.fh * sc;
+      const cx = sx(e.x), cy = sy(e.y) - h * 0.45;
       g.globalAlpha = e.alpha;
       if (T.glow) {
-        const cx = sx(e.x), cy = sy(e.y) - h * 0.45;
         const gl = g.createRadialGradient(cx, cy, 2, cx, cy, h * 0.9);
-        gl.addColorStop(0, T.glow);
-        gl.addColorStop(1, "rgba(255,170,40,0)");
+        gl.addColorStop(0, `rgba(${T.glow},0.55)`);
+        gl.addColorStop(1, `rgba(${T.glow},0)`);
         g.fillStyle = gl;
         g.fillRect(cx - h, cy - h, h * 2, h * 2);
       }
       // Sprites face left; flip when hopping right. Anchor at the feet.
+      g.globalAlpha = e.alpha * (T.alpha || 1);
       this.drawSheet(g, sh, frame, sx(e.x), sy(e.y) - (h / 2) * ssy * pop, sc * pop, e.face > 0, ssx, ssy);
+      if (T.sparkle) {
+        // Twinkling pixels orbiting the sprite; deterministic per entity so no extra state.
+        g.fillStyle = T.sparkle;
+        const z = Math.max(2, Math.round(2.5 * s * 1.4));
+        for (let k = 0; k < 5; k++) {
+          const ph = this.time * (1.3 + k * 0.17) + k * 2.1 + e.anim * 0.1;
+          const tw = Math.sin(ph * 3);
+          if (tw < 0.2) continue;
+          g.globalAlpha = e.alpha * tw;
+          const r = h * (0.45 + 0.15 * Math.sin(ph * 0.7));
+          const px = cx + Math.cos(ph) * r, py = cy + Math.sin(ph * 1.3) * r * 0.7;
+          g.fillRect(px - z / 2, py - z * 1.5, z, z * 3);
+          g.fillRect(px - z * 1.5, py - z / 2, z * 3, z);
+        }
+      }
       g.globalAlpha = 1;
     }
 

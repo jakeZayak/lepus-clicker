@@ -1,7 +1,7 @@
 // Lepus Clicker: boot, input, HUD/shop DOM and the requestAnimationFrame loop.
 import { loadSprites, sheets, TIERS, iconURL } from "./sprites.js";
 import * as G from "./game.js";
-import { Yard, topCount } from "./yard.js";
+import { Yard, topCount, windowLo } from "./yard.js";
 import { Renderer, Spinner } from "./render.js";
 import { Sound } from "./audio.js";
 import * as Save from "./save.js";
@@ -45,29 +45,30 @@ function grantOffline(sec) {
   const gain = G.totalLps(state) * Math.min(G.OFFLINE_CAP, sec);
   if (gain < 1) return;
   G.earn(state, gain);
-  toast(`While you were away (${duration(sec)}), your Lepuses earned ${G.fmt(gain)} Lepus!`);
+  if (sec >= 60) toast(`While you were away (${duration(sec)}), your Lepuses earned ${G.fmt(gain)} Lepus!`);
 }
 
 // ---------- shop ----------
-const cards = {};
-for (const u of G.UPGRADES) {
-  const b = document.createElement("button");
-  b.className = "item";
-  b.innerHTML = `<img class="icon" alt=""><span class="info"><span class="name"></span><span class="desc"></span></span><span class="meta"><span class="cost"></span><span class="owned"></span></span>`;
-  const icon = b.querySelector(".icon");
-  icon.src = iconURL(sheets[u.icon], u.iconFrame || 0);
-  if (u.iconTint) icon.classList.add(u.iconTint);
-  b.addEventListener("click", () => tryBuy(u));
-  $("shopList").append(b);
-  cards[u.id] = { el: b, key: "" };
+const iconCache = {};
+function iconFor(key, frame = 0) {
+  const k = key + ":" + frame;
+  return (iconCache[k] ||= iconURL(sheets[key], frame));
 }
 
-function tryBuy(u) {
-  sound.unlock();
-  if (!state.revealed[u.id]) return sound.play("denied", { vol: 0.6 });
-  if (!G.buy(state, u)) return sound.play("denied", { vol: 0.7 });
+function makeCard(item, onBuy) {
+  const el = document.createElement("button");
+  el.className = "item";
+  el.innerHTML = `<img class="icon" alt=""><span class="info"><span class="name"></span><span class="desc"></span></span><span class="meta"><span class="cost"></span><span class="owned"></span></span>`;
+  const icon = el.querySelector(".icon");
+  icon.src = iconFor(item.icon, item.iconFrame || 0);
+  if (item.hue) icon.style.filter = `hue-rotate(${item.hue}deg)`;
+  if (item.grade !== undefined) icon.style.borderColor = G.GRADE_COLORS[item.grade];
+  el.addEventListener("click", () => onBuy(item));
+  return { el, key: "" };
+}
+
+function bought(el) {
   sound.play("buy", { vol: 0.9, pitch: 0.03 });
-  const el = cards[u.id].el;
   el.classList.remove("flash");
   void el.offsetWidth;
   el.classList.add("flash");
@@ -77,27 +78,94 @@ function tryBuy(u) {
   Save.save(state);
 }
 
+const bCards = {};
+for (const b of G.BUILDINGS) {
+  bCards[b.id] = makeCard(b, (b) => {
+    sound.unlock();
+    if (!state.revealed[b.id] || !G.buyBuilding(state, b, state.buyAmount || 1)) return sound.play("denied", { vol: 0.7 });
+    bought(bCards[b.id].el);
+  });
+  $("shopList").append(bCards[b.id].el);
+}
+
+const uCards = {};
+function upgradeCard(u) {
+  return (uCards[u.id] ||= makeCard(u, (u) => {
+    sound.unlock();
+    if (!G.buyUpgrade(state, u)) return sound.play("denied", { vol: 0.7 });
+    bought(uCards[u.id].el);
+  }));
+}
+
+function setTab(t) {
+  for (const btn of document.querySelectorAll(".tab")) btn.setAttribute("aria-selected", String(btn.dataset.tab === t));
+  $("shopList").hidden = t !== "buildings";
+  $("buyAmount").hidden = t !== "buildings";
+  $("upgradeList").hidden = t !== "upgrades";
+}
+for (const btn of document.querySelectorAll(".tab")) btn.addEventListener("click", () => (sound.play("tick"), setTab(btn.dataset.tab)));
+for (const btn of document.querySelectorAll("#buyAmount button"))
+  btn.addEventListener("click", () => {
+    state.buyAmount = Number(btn.dataset.n);
+    sound.play("tick");
+    refreshShop();
+  });
+
+let upgradeListKey = "", knownUpgrades = -1;
 function refreshShop() {
-  let affordable = 0;
-  for (const u of G.UPGRADES) {
-    const c = cards[u.id], shown = !!state.revealed[u.id];
-    const n = G.owned(state, u.id), done = u.kind === "once" && n > 0;
-    const cost = G.costOf(state, u), afford = shown && G.canBuy(state, u);
-    if (afford) affordable++;
-    const key = `${shown}|${n}|${cost}|${afford}`;
+  const amt = state.buyAmount || 1;
+  for (const btn of document.querySelectorAll("#buyAmount button")) btn.setAttribute("aria-pressed", String(Number(btn.dataset.n) === amt));
+
+  // Buildings: every revealed one, plus a single "???" teaser for the next.
+  let affordB = 0, teaser = false;
+  for (const b of G.BUILDINGS) {
+    const c = bCards[b.id], shown = !!state.revealed[b.id];
+    const visible = shown || !teaser;
+    if (!shown) teaser = true;
+    const cost = G.buildingCost(state, b, amt), afford = shown && state.balance >= cost, n = G.owned(state, b.id);
+    if (afford) affordB++;
+    const each = shown ? G.eachLps(state, b) : 0;
+    const key = `${visible}|${shown}|${n}|${cost}|${afford}|${each}`;
     if (key === c.key) continue;
     c.key = key;
     const el = c.el;
+    el.hidden = !visible;
     el.classList.toggle("hidden", !shown);
     el.classList.toggle("afford", afford);
-    el.classList.toggle("done", done);
-    el.querySelector(".name").textContent = shown ? u.name : "???";
-    el.querySelector(".desc").textContent = shown ? u.desc : `Earn ${G.fmt(u.cost / 2)} Lepus to reveal.`;
-    el.querySelector(".cost").textContent = done ? "Owned" : shown ? G.fmt(cost) : "???";
-    el.querySelector(".owned").textContent = u.kind === "building" && n ? n : "";
-    el.setAttribute("aria-label", shown ? `${u.name}, ${done ? "owned" : `costs ${G.fmt(cost)} Lepus`}. ${u.desc}` : "Locked upgrade");
+    const desc = b.mother ? `${b.desc} (+${G.fmtRate(each)}/s each)` : `+${G.fmtRate(each)} Lepus/s each`;
+    el.querySelector(".name").textContent = shown ? b.name : "???";
+    el.querySelector(".desc").textContent = shown ? desc : `Earn ${G.fmt(b.cost / 2)} Lepus to reveal.`;
+    el.querySelector(".cost").textContent = shown ? (amt > 1 ? `×${amt} ` : "") + G.fmtShort(cost) : "???";
+    el.querySelector(".owned").textContent = n || "";
+    el.setAttribute("aria-label", shown ? `${b.name}, ${n} owned, ${amt} cost ${G.fmt(cost)} Lepus. ${desc}` : "Locked building");
   }
-  $("shopBadge").textContent = affordable ? `${affordable} ready` : "";
+
+  // Upgrades: only the ones you can currently unlock, cheapest first.
+  const avail = G.UPGRADES.filter((u) => G.upgradeAvailable(state, u));
+  const listKey = avail.map((u) => u.id).join(",");
+  if (listKey !== upgradeListKey) {
+    upgradeListKey = listKey;
+    if (avail.length) $("upgradeList").replaceChildren(...avail.map((u) => upgradeCard(u).el));
+    else $("upgradeList").innerHTML = `<p class="empty">No upgrades yet. Keep earning and buying buildings to unlock them.</p>`;
+    if (knownUpgrades >= 0 && avail.length > knownUpgrades) sound.play("unlock", { vol: 0.6, minGap: 1 });
+    knownUpgrades = avail.length;
+  }
+  let affordU = 0;
+  for (const u of avail) {
+    const c = uCards[u.id], afford = state.balance >= u.cost;
+    if (afford) affordU++;
+    const key = String(afford);
+    if (key === c.key) continue;
+    c.key = key;
+    c.el.classList.toggle("afford", afford);
+    c.el.querySelector(".name").textContent = u.name;
+    c.el.querySelector(".desc").textContent = u.desc;
+    c.el.querySelector(".cost").textContent = G.fmtShort(u.cost);
+    c.el.setAttribute("aria-label", `${u.name}, costs ${G.fmt(u.cost)} Lepus. ${u.desc}`);
+  }
+  $("upBadge").textContent = affordU || "";
+  const total = affordB + affordU;
+  $("shopBadge").textContent = total ? `${total} ready` : "";
 }
 
 // ---------- HUD ----------
@@ -107,11 +175,14 @@ function refreshHud() {
   $("bal").textContent = G.fmt(state.balance);
   $("lps").textContent = G.fmtRate(G.totalLps(state));
   $("clickVal").textContent = G.fmtRate(G.clickValue(state)).replace(/\.0$/, "");
-  const top = topCount(Math.floor(state.balance));
-  const key = String(top > 9 ? top : 0);
+  // Legend: the 5 tiers currently in the yard, smallest to biggest.
+  const n = Math.floor(state.balance), lo = windowLo(n), hi = Math.min(TIERS.length - 1, lo + 4), top = topCount(n);
+  const key = `${lo}|${top > 9 ? top : 0}`;
   if (key !== legendKey) {
     legendKey = key;
-    $("legend").innerHTML = TIERS.map((t, i) => `<span><img src="${t.icon}" alt="${t.name}">${G.fmt(t.value)}${i === TIERS.length - 1 && top > 9 ? ` <span class="x">×${G.fmt(top)}</span>` : ""}</span>`).join("");
+    $("legend").innerHTML = TIERS.slice(lo, hi + 1)
+      .map((t, i) => `<span title="${t.name}"><img src="${t.icon}" alt="${t.name}">${G.fmtShort(t.value)}${lo + i === TIERS.length - 1 && top > 9 ? ` <span class="x">×${G.fmtShort(top)}</span>` : ""}</span>`)
+      .join("");
   }
 }
 
@@ -154,7 +225,8 @@ $("resetBtn").addEventListener("click", () => {
   state = Object.assign(G.newState(), { musicOn, sfxOn });
   G.reveal(state);
   yard.reset(0);
-  for (const c of Object.values(cards)) c.key = "";
+  for (const c of [...Object.values(bCards), ...Object.values(uCards)]) c.key = "";
+  upgradeListKey = "";
   $("hint").classList.remove("gone");
   menu.close();
 });
@@ -231,8 +303,8 @@ function frame(now) {
 
   if ((uiTimer -= dt) <= 0) {
     uiTimer = 0.1;
-    for (const u of G.reveal(state)) {
-      toast(`New upgrade: ${u.name}!`);
+    for (const b of G.reveal(state)) {
+      toast(`New building: ${b.name}!`);
       sound.play("unlock", { vol: 0.8 });
     }
     refreshHud();
@@ -250,4 +322,4 @@ requestAnimationFrame(frame);
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 
 // Console helpers for testing: lepus.give(1e6)
-window.lepus = { get state() { return state; }, yard, sound, give: (n) => G.earn(state, n) };
+window.lepus = { get state() { return state; }, yard, sound, G, give: (n) => G.earn(state, n), dirty: () => (state._v = (state._v || 0) + 1) };

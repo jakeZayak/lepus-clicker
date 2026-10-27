@@ -39,7 +39,18 @@
     <aside id="shop" class="panel">
       <button id="shopToggle"><span>Shop</span><span id="shopBadge"></span><span class="chev">▲</span></button>
       <h2>Shop</h2>
-      <div id="shopList"></div>
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" data-tab="buildings" aria-selected="true">Buildings</button>
+        <button class="tab" role="tab" data-tab="upgrades" aria-selected="false">Upgrades <span id="upBadge" class="badge"></span></button>
+      </div>
+      <div id="buyAmount">
+        <span>Buy</span>
+        <button data-n="1" aria-pressed="true">×1</button>
+        <button data-n="10" aria-pressed="false">×10</button>
+        <button data-n="100" aria-pressed="false">×100</button>
+      </div>
+      <div id="shopList" class="list"></div>
+      <div id="upgradeList" class="list" hidden></div>
     </aside>
   </div>
 

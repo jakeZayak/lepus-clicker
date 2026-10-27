@@ -4,7 +4,9 @@ import { TIERS } from "./sprites.js";
 
 export const YARD = { W: 760, H: 300, GROUND: 284, FENCE_L: 22, FENCE_R: 738 };
 const { W, GROUND, FENCE_L, FENCE_R } = YARD;
-const TOP = TIERS.length - 1; // Solar: everything >= 100,000, at most 9 sprites shown
+const TOP = TIERS.length - 1; // Lepus Supreme: everything >= 10^30, at most 9 sprites shown
+const WINDOW = 5; // only the 5 highest tiers you own are in the yard
+const WINDOW_SCALE = [0.62, 0.74, 0.88, 1.02, 1.2]; // smallest visible tier -> biggest
 const G = 1100;
 const GATHER_TIME = 0.42;
 const POOF_TIME = 0.3;
@@ -12,7 +14,9 @@ const POOF_TIME = 0.3;
 const rand = (a, b) => a + Math.random() * (b - a);
 const digit = (n, t) => Math.floor(n / 10 ** t) % 10;
 export const topCount = (n) => Math.floor(n / 10 ** TOP);
-const want = (n, t) => (t < TOP ? digit(n, t) : Math.min(9, topCount(n)));
+export const topTier = (n) => (n < 10 ? 0 : Math.min(TOP, Math.floor(Math.log10(n) + 1e-9)));
+export const windowLo = (n) => Math.max(0, topTier(n) - (WINDOW - 1));
+const want = (n, t) => (t < windowLo(n) ? 0 : t < TOP ? digit(n, t) : Math.min(9, topCount(n)));
 
 export class Yard {
   constructor() {
@@ -23,6 +27,17 @@ export class Yard {
     this.shown = null; // wallet value the sprites currently represent
     this.cooldown = 0;
     this.spawnPoint = { x: W / 2, y: -150 }; // spinner centre in yard coords, set by the renderer
+    this.lo = 0; // lowest tier currently shown
+  }
+
+  // World-units-per-sprite-pixel for a tier, by its place in the visible window.
+  scaleOf(t) {
+    const i = Math.max(0, Math.min(WINDOW - 1, t - this.lo));
+    return TIERS[t].fit * WINDOW_SCALE[i];
+  }
+
+  halfWidth(t) {
+    return TIERS[t].sprite.fw * this.scaleOf(t) * 0.3;
   }
 
   count(t) {
@@ -42,6 +57,7 @@ export class Yard {
     if (n === this.shown || (!force && this.cooldown > 0)) return;
     this.cooldown = 0.12;
     const d = n - this.shown;
+    this.lo = windowLo(n);
     if (d > 0) this.earn(d);
     else this.spend(-d);
     this.shown = n;
@@ -56,6 +72,7 @@ export class Yard {
   reset(n) {
     this.ents = [];
     this.pending = [];
+    this.lo = windowLo(n);
     for (let t = 0; t <= TOP; t++) for (let k = 0; k < want(n, t); k++) this.ents.push(this.make(t, rand(FENCE_L + 60, FENCE_R - 60), GROUND));
     this.shown = n;
   }
@@ -66,7 +83,7 @@ export class Yard {
 
   // Column addition: spawn each digit of d, carrying with a merge whenever a tier reaches 10.
   earn(d) {
-    for (let t = 0; t < TOP; t++) {
+    for (let t = this.lo; t < TOP; t++) {
       for (let k = digit(d, t); k > 0; k--) this.spawn(t);
       if (this.count(t) >= 10) this.merge(t);
     }
@@ -74,7 +91,7 @@ export class Yard {
 
   // Column subtraction: borrow by splitting a bigger Lepus whenever a tier runs short.
   spend(d) {
-    for (let t = 0; t < TOP; t++) {
+    for (let t = this.lo; t < TOP; t++) {
       const need = digit(d, t);
       while (this.count(t) < need) if (!this.split(t + 1)) break;
       this.poof(t, need);
@@ -82,9 +99,9 @@ export class Yard {
   }
 
   spawn(t) {
-    if (t === 0) {
-      // Fly out of the spinner on a ballistic arc that lands somewhere in the yard.
-      const sp = this.spawnPoint, e = this.make(0, sp.x, sp.y);
+    if (t === this.lo) {
+      // The smallest visible tier flies out of the spinner on a ballistic arc into the yard.
+      const sp = this.spawnPoint, e = this.make(t, sp.x, sp.y);
       const tx = rand(FENCE_L + 40, FENCE_R - 40), T = rand(0.65, 0.95);
       e.vx = (tx - sp.x) / T;
       e.vy = (GROUND - sp.y - 0.5 * G * T * T) / T;
@@ -227,7 +244,7 @@ export class Yard {
         e.x += e.vx * dt;
         if ((e.idle -= dt) <= 0) this.hop(e);
       }
-      const hw = TIERS[e.tier].hw;
+      const hw = this.halfWidth(e.tier);
       if (e.x < FENCE_L + hw) (e.x = FENCE_L + hw), (e.vx = Math.abs(e.vx) * 0.5);
       if (e.x > FENCE_R - hw) (e.x = FENCE_R - hw), (e.vx = -Math.abs(e.vx) * 0.5);
       if (Math.abs(e.vx) > 8) e.face = Math.sign(e.vx);

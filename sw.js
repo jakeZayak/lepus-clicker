@@ -1,6 +1,6 @@
 // Offline support: precache the whole game, then serve from cache and refresh in the background.
 // Bump VERSION when files are added or removed.
-const VERSION = "lepus-v1";
+const VERSION = "lepus-v2";
 const FILES = [
   "./",
   "index.html",
@@ -72,17 +72,21 @@ self.addEventListener("fetch", (e) => {
     e.respondWith(caches.match(req.url, { ignoreSearch: true }).then((hit) => (hit ? rangeResponse(req, hit) : fetch(req))));
     return;
   }
-  // Stale-while-revalidate: instant from cache, quietly updated for next launch.
+  // Game code (HTML/JS/CSS/manifest) is network-first so updates show up on the very next launch;
+  // art, sounds and fonts are cache-first. Offline, everything falls back to the cache.
+  const code = !isFont && /(\/|\.html|\.js|\.css|\.webmanifest)$/.test(url.pathname);
   e.respondWith(
     caches.open(VERSION).then(async (cache) => {
       const hit = await cache.match(req, { ignoreSearch: true });
-      const fresh = fetch(req)
-        .then((res) => {
-          if (res.ok || res.type === "opaque") cache.put(req, res.clone());
-          return res;
-        })
-        .catch(() => hit);
-      return hit || fresh;
+      if (hit && !code) return hit;
+      try {
+        const res = await fetch(req, code ? { cache: "no-cache" } : undefined);
+        if (res.ok || res.type === "opaque") cache.put(req, res.clone());
+        return res;
+      } catch (err) {
+        if (hit) return hit;
+        throw err;
+      }
     })
   );
 });

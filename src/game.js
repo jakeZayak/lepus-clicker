@@ -1,51 +1,142 @@
-// Game state and economy. Buildings cost base * 1.15^owned; one-shot upgrades are bought once.
+// Game state and economy, tuned (via a greedy-buyer simulation) to reach ~10^30 in about
+// 8 days of continuous play. Buildings cost base * 1.15^owned; each later building costs
+// 25x the previous and earns 12x as much. Upgrades double one building or everything.
 
 export const MOTHER_INTERVAL = 3; // seconds between each Mother Lepus auto-click
 export const COST_GROWTH = 1.15;
 export const OFFLINE_CAP = 8 * 3600;
 
-export const UPGRADES = [
-  { id: "egg", name: "Infinite Egg", kind: "once", cost: 10, icon: "suspicious_egg", desc: "Doubles Lepus per click." },
-  { id: "mother", name: "Mother Lepus", kind: "building", cost: 50, icon: "small_lepus", desc: `Auto-clicks the big Lepus every ${MOTHER_INTERVAL} s.` },
-  { id: "tripler", name: "Ultra Lepus Tripler", kind: "once", cost: 250, icon: "big_egg", desc: "Triples Lepus per click." },
-  { id: "burrow", name: "Lepus Burrow", kind: "building", cost: 500, lps: 8, icon: "lepus_bag", desc: "+8 Lepus per second." },
-  { id: "golden", name: "Golden Egg", kind: "once", cost: 2000, icon: "choc_egg", iconFrame: 1, desc: "Doubles all Lepus per second." },
-  { id: "feast", name: "Easter Feast", kind: "building", cost: 6000, lps: 50, icon: "choc_egg", desc: "+50 Lepus per second." },
-  { id: "hatchery", name: "Diseaster Hatchery", kind: "building", cost: 40000, lps: 260, icon: "small_egg", desc: "+260 Lepus per second." },
-  { id: "shrine", name: "Solar Lepus Shrine", kind: "building", cost: 300000, lps: 1600, icon: "solar", desc: "+1,600 Lepus per second." },
-  { id: "moonlit", name: "Moonlit Egg", kind: "once", cost: 1000000, icon: "big_egg", iconTint: "moon", desc: "Clicks also earn 1% of your Lepus per second." },
+const nice = (x) => {
+  const p = Math.pow(10, Math.floor(Math.log10(x)) - 1);
+  return Math.round(x / p) * p;
+};
+
+// [id, name, icon sprite, icon hue-rotate degrees]
+const LATER_BUILDINGS = [
+  ["carrots", "Carrot Plantation", "lepus_bag", 70],
+  ["chocfactory", "Chocolate Egg Factory", "choc_egg", 0],
+  ["castle", "Bunny Bounce Castle", "lepus", 200],
+  ["ranch", "Jackalope Ranch", "small_lepus", 30],
+  ["lab", "Lepus Cloning Lab", "big_egg", 120],
+  ["island", "Easter Island Warren", "small_egg", 260],
+  ["express", "Bunny Express", "lepus_bag", 180],
+  ["skywarren", "Sky Island Warren", "lepus", 140],
+  ["moonwarren", "Moon Warren", "suspicious_egg", 200],
+  ["station", "Lepus Space Station", "lepus_epic", 160],
+  ["hutch", "Galactic Hutch", "small_lepus", 250],
+  ["wormhole", "Wormhole Burrow", "big_egg", 280],
+  ["starforge", "Eggstar Forge", "choc_egg", 300],
+  ["bunniverse", "Bunniverse", "solar", 220],
+  ["engine", "Infinite Carrot Engine", "lepus_bag", 320],
+  ["singularity", "The Lepus Singularity", "solar", 120],
 ];
 
+export const BUILDINGS = [
+  { id: "mother", name: "Mother Lepus", cost: 50, mother: true, icon: "small_lepus", desc: `Auto-clicks the big Lepus every ${MOTHER_INTERVAL} s.` },
+  { id: "burrow", name: "Lepus Burrow", cost: 500, lps: 8, icon: "lepus_bag" },
+  { id: "feast", name: "Easter Feast", cost: 6000, lps: 50, icon: "choc_egg" },
+  { id: "hatchery", name: "Diseaster Hatchery", cost: 40000, lps: 260, icon: "small_egg" },
+  { id: "shrine", name: "Solar Lepus Shrine", cost: 300000, lps: 1600, icon: "solar" },
+];
+for (const [id, name, icon, hue] of LATER_BUILDINGS) {
+  const prev = BUILDINGS[BUILDINGS.length - 1];
+  BUILDINGS.push({ id, name, icon, hue, cost: nice(prev.cost * 25), lps: nice(prev.lps * 12) });
+}
+
+// Per-building doublers unlock at these owned counts, priced at a multiple of the building's base cost.
+const GRADES = ["Bronze", "Silver", "Gold", "Platinum", "Diamond", "Ruby", "Cosmic", "Infinite"];
+const GRADE_AT = [1, 10, 25, 50, 100, 150, 200, 250];
+const GRADE_COST = [10, 50, 500, 5e4, 5e6, 5e8, 5e10, 5e12];
+export const GRADE_COLORS = ["#cd7f32", "#c8ccd6", "#ffd75a", "#9be7ff", "#b9f2ff", "#ff5a7a", "#b07cff", "#ffffff"];
+
+const EGG_NAMES = ["Golden Egg", "Ruby Egg", "Emerald Egg", "Sapphire Egg", "Amethyst Egg", "Diamond Egg", "Lunar Egg", "Nebula Egg", "Cosmic Egg", "Eternal Egg"];
+// Click scaling: Paws multiply the click; Carrots add a share of Lepus per second to every click,
+// so tapping keeps pace with the buildings all game long.
+const PAWS = [
+  ["Fuzzy Paws", 1000, 2], ["Springy Paws", 2e4, 2], ["Golden Paws", 5e5, 3], ["Ruby Paws", 1e7, 2], ["Diamond Paws", 5e8, 3],
+  ["Lunar Paws", 5e10, 2], ["Nebula Paws", 5e12, 3], ["Cosmic Paws", 5e14, 2], ["Eternal Paws", 5e16, 3], ["Supreme Paws", 5e18, 5],
+];
+const CARROTS = [
+  ["Crunchy Carrot", 1e6, 0.01], ["Star Carrot", 1e8, 0.01], ["Sky Carrot", 1e10, 0.01], ["Lunar Carrot", 1e12, 0.02], ["Nebula Carrot", 1e14, 0.02],
+  ["Vortex Carrot", 1e16, 0.02], ["Cosmic Carrot", 1e18, 0.02], ["Galaxy Carrot", 1e20, 0.02], ["Eternal Carrot", 1e22, 0.02], ["Supreme Carrot", 1e24, 0.02],
+];
+const pct = (x) => `${Math.round(x * 100)}%`;
+
+export const UPGRADES = [
+  { id: "egg", name: "Infinite Egg", cost: 10, click: 2, icon: "suspicious_egg", desc: "Doubles Lepus per click." },
+  { id: "tripler", name: "Ultra Lepus Tripler", cost: 250, click: 3, icon: "big_egg", desc: "Triples Lepus per click." },
+  { id: "moonlit", name: "Moonlit Egg", cost: 25000, clickLps: 0.01, icon: "big_egg", hue: 190, desc: "Clicks also earn 1% of your Lepus per second." },
+];
+PAWS.forEach(([name, cost, x], k) =>
+  UPGRADES.push({ id: `paw${k}`, name, cost, click: x, icon: "bunny", hue: k * 36, desc: x === 2 ? "Doubles Lepus per click." : `Lepus per click ×${x}.` })
+);
+CARROTS.forEach(([name, cost, share], k) =>
+  UPGRADES.push({ id: `carrot${k}`, name, cost, clickLps: share, icon: "lepus_bag", hue: 40 * k, desc: `Clicks also earn ${pct(share)} of your Lepus per second.` })
+);
+// The first egg keeps its old id so existing saves carry over.
+EGG_NAMES.forEach((name, k) =>
+  UPGRADES.push({ id: k ? `egg_g${k}` : "golden", name, cost: 2000 * Math.pow(1000, k), global: 2, icon: "choc_egg", iconFrame: 1, hue: k * 36, desc: "Doubles all Lepus per second." })
+);
+for (const b of BUILDINGS)
+  GRADES.forEach((grade, k) =>
+    UPGRADES.push({
+      id: `${b.id}_${k}`,
+      name: `${grade} ${b.name}`,
+      cost: nice(b.cost * GRADE_COST[k]),
+      building: b.id,
+      need: GRADE_AT[k],
+      grade: k,
+      icon: b.icon,
+      hue: b.hue,
+      desc: b.mother ? "Mother Lepuses click twice as hard." : `${b.name}s earn twice as much.`,
+    })
+  );
+UPGRADES.sort((a, b) => a.cost - b.cost);
+
 export function newState() {
-  return { balance: 0, lifetime: 0, clicks: 0, owned: {}, revealed: {}, motherAcc: 0, musicOn: true, sfxOn: true, savedAt: Date.now() };
+  return { balance: 0, lifetime: 0, clicks: 0, owned: {}, revealed: {}, motherAcc: 0, buyAmount: 1, musicOn: true, sfxOn: true, savedAt: Date.now() };
 }
 
 export const owned = (s, id) => s.owned[id] || 0;
 
-export function costOf(s, u) {
-  return u.kind === "once" ? u.cost : Math.ceil(u.cost * Math.pow(COST_GROWTH, owned(s, u.id)));
+// Derived multipliers, recomputed only after a purchase (s._v changes).
+let cacheV = -1, cacheS = null, cache = null;
+function derived(s) {
+  if (cacheS === s && cacheV === s._v && cache) return cache;
+  const d = { click: 1, clickLps: 0, global: 1, mult: {} };
+  for (const u of UPGRADES) {
+    if (!owned(s, u.id)) continue;
+    if (u.click) d.click *= u.click;
+    if (u.clickLps) d.clickLps += u.clickLps;
+    if (u.global) d.global *= u.global;
+    if (u.building) d.mult[u.building] = (d.mult[u.building] || 1) * 2;
+  }
+  d.buildingLps = 0;
+  for (const b of BUILDINGS) if (b.lps) d.buildingLps += b.lps * owned(s, b.id) * (d.mult[b.id] || 1);
+  d.buildingLps *= d.global;
+  d.clickValue = d.click + d.buildingLps * d.clickLps;
+  d.motherClick = d.clickValue * d.global * (d.mult.mother || 1);
+  cacheS = s;
+  cacheV = s._v;
+  cache = d;
+  return d;
 }
 
-const lpsMult = (s) => (owned(s, "golden") ? 2 : 1);
+export const buildingLps = (s) => derived(s).buildingLps;
+export const clickValue = (s) => derived(s).clickValue;
+export const motherClickValue = (s) => derived(s).motherClick;
+export const totalLps = (s) => buildingLps(s) + (owned(s, "mother") * motherClickValue(s)) / MOTHER_INTERVAL;
 
-export function buildingLps(s) {
-  let l = 0;
-  for (const u of UPGRADES) if (u.lps) l += u.lps * owned(s, u.id);
-  return l * lpsMult(s);
+// What one building of this type adds per second right now (for the shop text).
+export function eachLps(s, b) {
+  const d = derived(s);
+  return b.mother ? d.motherClick / MOTHER_INTERVAL : b.lps * (d.mult[b.id] || 1) * d.global;
 }
 
-export function clickValue(s) {
-  let v = 1;
-  if (owned(s, "egg")) v *= 2;
-  if (owned(s, "tripler")) v *= 3;
-  if (owned(s, "moonlit")) v += buildingLps(s) * 0.01;
-  return v;
-}
-
-export const motherClickValue = (s) => clickValue(s) * lpsMult(s);
-
-export function totalLps(s) {
-  return buildingLps(s) + (owned(s, "mother") * motherClickValue(s)) / MOTHER_INTERVAL;
+// Cost of the next n buildings: geometric series of base * 1.15^owned.
+export function buildingCost(s, b, n = 1) {
+  const g = COST_GROWTH, o = owned(s, b.id);
+  return Math.ceil((b.cost * Math.pow(g, o) * (Math.pow(g, n) - 1)) / (g - 1));
 }
 
 export function earn(s, n) {
@@ -53,14 +144,25 @@ export function earn(s, n) {
   s.lifetime += n;
 }
 
-export function canBuy(s, u) {
-  return !(u.kind === "once" && owned(s, u.id)) && s.balance >= costOf(s, u);
+export function upgradeAvailable(s, u) {
+  if (owned(s, u.id)) return false;
+  return u.building ? owned(s, u.building) >= u.need : s.lifetime >= u.cost * 0.5;
 }
 
-export function buy(s, u) {
-  if (!canBuy(s, u)) return false;
-  s.balance -= costOf(s, u);
-  s.owned[u.id] = owned(s, u.id) + 1;
+export function buyBuilding(s, b, n = 1) {
+  const c = buildingCost(s, b, n);
+  if (s.balance < c) return false;
+  s.balance -= c;
+  s.owned[b.id] = owned(s, b.id) + n;
+  s._v = (s._v || 0) + 1;
+  return true;
+}
+
+export function buyUpgrade(s, u) {
+  if (!upgradeAvailable(s, u) || s.balance < u.cost) return false;
+  s.balance -= u.cost;
+  s.owned[u.id] = 1;
+  s._v = (s._v || 0) + 1;
   return true;
 }
 
@@ -78,24 +180,35 @@ export function tick(s, dt) {
   return fired;
 }
 
-// Upgrades appear once you've earned half their base cost; returns newly revealed ones.
+// Buildings appear once you've earned half their base cost; returns newly revealed ones.
 export function reveal(s) {
   const fresh = [];
-  for (const u of UPGRADES)
-    if (!s.revealed[u.id] && (s.lifetime >= u.cost * 0.5 || owned(s, u.id))) {
-      s.revealed[u.id] = true;
-      fresh.push(u);
+  for (const b of BUILDINGS)
+    if (!s.revealed[b.id] && (s.lifetime >= b.cost * 0.5 || owned(s, b.id))) {
+      s.revealed[b.id] = true;
+      fresh.push(b);
     }
   return fresh;
 }
 
-const BIG = ["million", "billion", "trillion", "quadrillion", "quintillion", "sextillion", "septillion"];
+const BIG = ["million", "billion", "trillion", "quadrillion", "quintillion", "sextillion", "septillion", "octillion", "nonillion", "decillion", "undecillion", "duodecillion"];
+const SHORT = ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc", "Ud", "Dd"];
 
 export function fmt(n) {
   n = Math.floor(n);
   if (n < 1e6) return n.toLocaleString("en-US");
-  const e = Math.min(BIG.length - 1, Math.floor(Math.log10(n) / 3) - 2);
+  const e = Math.floor(Math.log10(n) / 3) - 2;
+  if (e >= BIG.length) return n.toExponential(3).replace("e+", "e");
   return (n / Math.pow(1000, e + 2)).toFixed(3) + " " + BIG[e];
+}
+
+// Compact form for small labels: 1.5K, 20M, 3Qa...
+export function fmtShort(n) {
+  if (n < 1000) return String(Math.floor(n));
+  const e = Math.floor(Math.log10(n) / 3);
+  if (e >= SHORT.length) return n.toExponential(1).replace("e+", "e");
+  const v = n / Math.pow(1000, e);
+  return (v < 10 ? +v.toFixed(1) : Math.floor(v)) + SHORT[e];
 }
 
 export function fmtRate(n) {

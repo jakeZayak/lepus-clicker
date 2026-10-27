@@ -139,7 +139,16 @@ img { image-rendering: pixelated; }
 }
 #shop h2 { margin: 0 0 8px; font-size: 22px; color: var(--gold); text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5); }
 #shopToggle { display: none; }
-#shopList { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 2px; }
+.list { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 2px; min-height: 0; }
+.list[hidden], #buyAmount[hidden], .item[hidden] { display: none; }
+.list .empty { color: var(--muted); font-size: 14px; text-align: center; margin: 20px 8px; }
+.tabs { display: flex; gap: 6px; margin-bottom: 6px; }
+.tab { flex: 1; padding: 6px; background: var(--slot); border: 2px solid rgba(142,160,255,0.5); border-radius: 6px; font-weight: 700; }
+.tab[aria-selected="true"] { border-color: var(--gold); color: var(--gold); background: var(--slot-hover); }
+.badge:not(:empty) { font-size: 12px; color: #241b00; background: var(--gold); border-radius: 10px; padding: 0 7px; margin-left: 4px; }
+#buyAmount { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 14px; color: var(--muted); }
+#buyAmount button { padding: 2px 10px; background: var(--slot); border: 2px solid rgba(142,160,255,0.5); border-radius: 6px; }
+#buyAmount button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
 
 .item {
   display: grid;
@@ -159,7 +168,7 @@ img { image-rendering: pixelated; }
 .item:active { transform: translateY(1px); }
 .item.done { opacity: 0.4; cursor: default; }
 .item.hidden .icon, .item.hidden .icon.moon { filter: brightness(0) opacity(0.55); }
-.item .icon { width: 48px; height: 44px; object-fit: contain; }
+.item .icon { width: 48px; height: 44px; object-fit: contain; border: 2px solid transparent; border-radius: 6px; }
 .item:not(.hidden) .icon.moon { filter: grayscale(1) sepia(1) hue-rotate(180deg) saturate(2.2) brightness(1.1); }
 .item .info { display: flex; flex-direction: column; min-width: 0; }
 .item .name { font-weight: 700; font-size: 16px; }

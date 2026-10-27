@@ -19,20 +19,76 @@ export const LEPUS_FRAMES = { stand: [0, 1, 2, 3], rise: 4, fall: 5 };
 
 export const sheets = {};
 
-// Yard tiers: each is worth 10x the one below. scale is sprite px -> yard world units.
+// Yard tiers: tier t is worth 10^t. Each is a real Lepus sprite recoloured through a ramp,
+// optionally with a glow, sparkles or transparency. Size comes from the yard's 5-tier window.
+const T = (name, sheet, ramp, fx = {}) => ({ name, sheet, ramp, ...fx });
 export const TIERS = [
-  { name: "Bunny", value: 1, sheet: "bunny", scale: 1.0 },
-  { name: "Lepus", value: 10, sheet: "lepus", scale: 0.62 },
-  { name: "Bronze Lepus", value: 100, sheet: "lepus", ramp: "bronze", scale: 0.78 },
-  { name: "Silver Lepus", value: 1000, sheet: "lepus", ramp: "silver", scale: 0.94 },
-  { name: "Golden Epic Lepus", value: 10000, sheet: "lepus_epic", ramp: "gold", scale: 1.1 },
-  { name: "Solar Lepus", value: 100000, sheet: "solar", scale: 1.25, glow: "rgba(255,170,40,0.55)" },
+  T("Bunny", "bunny"),
+  T("Lepus", "lepus"),
+  T("Bronze Lepus", "lepus", "bronze"),
+  T("Silver Lepus", "lepus", "silver"),
+  T("Golden Epic Lepus", "lepus_epic", "gold"),
+  T("Solar Lepus", "solar", null, { glow: "255,170,40" }),
+  T("Emerald Lepus", "lepus", "emerald"),
+  T("Sapphire Epic Lepus", "lepus_epic", "sapphire"),
+  T("Amethyst Lepus", "lepus", "amethyst"),
+  T("Ruby Epic Lepus", "lepus_epic", "ruby"),
+  T("Diamond Lepus", "lepus", "diamond", { glow: "190,240,255" }),
+  T("Obsidian Epic Lepus", "lepus_epic", "obsidian", { glow: "150,60,255" }),
+  T("Frost Lepus", "lepus", "frost", { glow: "160,220,255", sparkle: "#e8fbff" }),
+  T("Inferno Lepus", "solar", "inferno", { glow: "255,80,20", sparkle: "#ffb040" }),
+  T("Hallowed Lepus", "lepus", "hallowed", { glow: "255,240,170", sparkle: "#fff6a0" }),
+  T("Chlorophyte Epic Lepus", "lepus_epic", "chlorophyte", { glow: "90,255,90", sparkle: "#b6ff9a" }),
+  T("Shroomite Lepus", "lepus", "shroomite", { glow: "60,120,255", sparkle: "#8fb4ff" }),
+  T("Spectre Lepus", "lepus", "spectre", { glow: "120,200,255", sparkle: "#d6f0ff", alpha: 0.72 }),
+  T("Lunar Epic Lepus", "lepus_epic", "lunar", { glow: "120,255,220", sparkle: "#c6fff0" }),
+  T("Nebula Lepus", "solar", "nebula", { glow: "255,60,200", sparkle: "#ff9ae6" }),
+  T("Stardust Lepus", "lepus", "stardust", { glow: "90,180,255", sparkle: "#ffffff" }),
+  T("Vortex Lepus", "lepus", "vortex", { glow: "40,255,190", sparkle: "#9affe0" }),
+  T("Solar Flare Lepus", "solar", "flare", { glow: "255,140,0", sparkle: "#ffe066" }),
+  T("Celestial Epic Lepus", "lepus_epic", "celestial", { glow: "255,255,255", sparkle: "#ffffff" }),
+  T("Rainbow Lepus", "lepus", "rainbow", { glow: "255,180,255", sparkle: "#ffffff" }),
+  T("Shadow Epic Lepus", "lepus_epic", "shadow", { glow: "90,0,140", sparkle: "#b080ff" }),
+  T("Cosmic Lepus", "solar", "cosmic", { glow: "140,90,255", sparkle: "#ffffff" }),
+  T("Galaxy Lepus", "lepus", "galaxy", { glow: "255,120,255", sparkle: "#fff0a0" }),
+  T("Eternal Epic Lepus", "lepus_epic", "eternal", { glow: "255,230,140", sparkle: "#ffffff" }),
+  T("Omega Lepus", "solar", "omega", { glow: "255,40,80", sparkle: "#ffffff" }),
+  T("Lepus Supreme", "lepus_epic", "supreme", { glow: "255,215,90", sparkle: "#ffffff" }),
 ];
+TIERS.forEach((t, i) => (t.value = Math.pow(10, i)));
+
+// Sprite px -> yard world units at window scale 1, per base sheet.
+export const SHEET_FIT = { bunny: 1.55, lepus: 1, lepus_epic: 1, solar: 1.05 };
 
 const RAMPS = {
   bronze: ["#2e1608", "#6e3a17", "#a8622b", "#d99556", "#f6d0a0"],
   silver: ["#23262e", "#5d6372", "#9aa2b2", "#d3d8e2", "#ffffff"],
   gold: ["#3d2600", "#8a5a00", "#d29a12", "#ffd75a", "#fff6c8"],
+  emerald: ["#032a14", "#0b6b34", "#1fae5a", "#6fe39a", "#d8ffe6"],
+  sapphire: ["#06123d", "#123a9c", "#2f6fe0", "#7fb2ff", "#e2eeff"],
+  amethyst: ["#22083a", "#5a1f8f", "#9150d6", "#c79bf5", "#f3e6ff"],
+  ruby: ["#3a0410", "#8f0f2b", "#d82a4c", "#ff7f95", "#ffe0e6"],
+  diamond: ["#1d3a4a", "#4f9bb8", "#9fe3f5", "#dcfaff", "#ffffff"],
+  obsidian: ["#07040c", "#1d1230", "#3b2463", "#6a46a8", "#b9a2e8"],
+  frost: ["#0d2a4a", "#3d7fc0", "#8fd0ff", "#d8f3ff", "#ffffff"],
+  inferno: ["#2a0500", "#8a1a00", "#e04a00", "#ffa030", "#fff0b0"],
+  hallowed: ["#4a3a10", "#b0902a", "#f0d860", "#fff4b0", "#ffffff"],
+  chlorophyte: ["#0a2a08", "#2a7a1a", "#5ad13a", "#b6ff9a", "#f0ffe8"],
+  shroomite: ["#050c3a", "#1430a0", "#3a6cff", "#8fb4ff", "#e8f0ff"],
+  spectre: ["#0e2236", "#3a6e9a", "#7fbde8", "#cdeaff", "#ffffff"],
+  lunar: ["#08302a", "#16806e", "#3ae0c0", "#a6fff0", "#f0fffc"],
+  nebula: ["#2a0430", "#8a1488", "#e03ac8", "#ff9ae6", "#fff0fb"],
+  stardust: ["#0a1a40", "#2a5ab0", "#5aa8ff", "#c0e4ff", "#ffffff"],
+  vortex: ["#022a22", "#0a7a60", "#1ae0a8", "#9affe0", "#f0fff9"],
+  flare: ["#3a1000", "#c04000", "#ff8a00", "#ffd040", "#fffbe0"],
+  celestial: ["#3a3a5a", "#8a8ac0", "#d0d0ff", "#f4f4ff", "#ffffff"],
+  rainbow: ["#e0203a", "#ff9a20", "#f0e040", "#40d070", "#4a90ff"],
+  shadow: ["#000000", "#140022", "#3a0a5a", "#6a2a9a", "#a070d0"],
+  cosmic: ["#0a0420", "#2a1470", "#6a3ae0", "#c0a0ff", "#ffffff"],
+  galaxy: ["#14002a", "#6a0a8a", "#e03ab0", "#ffb0e0", "#fff6c0"],
+  eternal: ["#3a2a0a", "#a07a20", "#f0d070", "#fff6d0", "#ffffff"],
+  omega: ["#2a0008", "#900020", "#ff2050", "#ffa0b0", "#ffffff"],
+  supreme: ["#3a2400", "#c08000", "#ffd040", "#ffffff", "#ffe6ff"],
 };
 
 function loadImage(src) {
@@ -107,7 +163,7 @@ function hex(h) {
 
 // Recolour the pink fur (and brown ear tips) through a metal ramp by lightness.
 // Whites (eyes, tail), greys and the sunglasses keep their original colours.
-function recolour(src, rampName) {
+function recolour(src, rampName, hueMax = 40) {
   const ramp = RAMPS[rampName].map(hex);
   const c = canvas(src.width, src.height);
   const g = c.getContext("2d");
@@ -116,7 +172,7 @@ function recolour(src, rampName) {
   for (let i = 0; i < d.length; i += 4) {
     if (!d[i + 3]) continue;
     const [h, s, l] = rgbToHsl(d[i], d[i + 1], d[i + 2]);
-    if (s < 0.14 || (h > 40 && h < 275)) continue;
+    if (s < 0.14 || (h > hueMax && h < 275)) continue;
     const t = Math.min(0.999, Math.max(0, (l - 0.08) / 0.86)) * (ramp.length - 1);
     const a = ramp[Math.floor(t)], b = ramp[Math.floor(t) + 1], f = t % 1;
     for (let k = 0; k < 3; k++) d[i + k] = a[k] + (b[k] - a[k]) * f;
@@ -145,8 +201,8 @@ export async function loadSprites() {
   );
   for (const t of TIERS) {
     const base = sheets[t.sheet];
-    t.sprite = t.ramp ? slice({ ...base, canvas: recolour(base.canvas, t.ramp) }) : base;
-    t.hw = t.sprite.fw * t.scale * 0.3;
+    t.sprite = t.ramp ? slice({ ...base, canvas: recolour(base.canvas, t.ramp, t.sheet === "solar" ? 65 : 40) }) : base;
+    t.fit = SHEET_FIT[t.sheet];
     t.icon = iconURL(t.sprite, 0);
   }
 }
