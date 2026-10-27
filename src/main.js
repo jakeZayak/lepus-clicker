@@ -246,5 +246,8 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 
+// Offline + installable app support.
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+
 // Console helpers for testing: lepus.give(1e6)
 window.lepus = { get state() { return state; }, yard, sound, give: (n) => G.earn(state, n) };
