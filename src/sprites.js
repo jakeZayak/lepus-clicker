@@ -12,6 +12,8 @@ const META = {
   small_egg: { src: "assets/sprites/small_egg.png" },
   suspicious_egg: { src: "assets/sprites/suspicious_egg.png" },
   lepus_bag: { src: "assets/sprites/lepus_bag.png" },
+  // Lepzilla from the QuadEyes Terraria mod (the Lepus sprite in charcoal with crystal spikes), stored at 2x.
+  lepuszilla: { src: "assets/sprites/lepuszilla.png", fw: 46, fh: 34, n: 1, downsample: 2 },
 };
 
 // Lepus frame layout from Consolaria's Lepus.cs: Stand1-4, Jump1 (rising), Jump2 (falling), Spawn.
@@ -54,11 +56,12 @@ export const TIERS = [
   T("Eternal Epic Lepus", "lepus_epic", "eternal", { glow: "255,230,140", sparkle: "#ffffff" }),
   T("Omega Lepus", "solar", "omega", { glow: "255,40,80", sparkle: "#ffffff" }),
   T("Lepus Supreme", "lepus_epic", "supreme", { glow: "255,215,90", sparkle: "#ffffff" }),
+  T("Lepuszilla", "lepuszilla", null, { glow: "240,80,214", sparkle: "#ffaaf4", zilla: true }),
 ];
 TIERS.forEach((t, i) => (t.value = Math.pow(10, i)));
 
 // Sprite px -> yard world units at window scale 1, per base sheet.
-export const SHEET_FIT = { bunny: 1.55, lepus: 1, lepus_epic: 1, solar: 1.05 };
+export const SHEET_FIT = { bunny: 1.55, lepus: 1, lepus_epic: 1, solar: 1.05, lepuszilla: 5.5 };
 
 const RAMPS = {
   bronze: ["#2e1608", "#6e3a17", "#a8622b", "#d99556", "#f6d0a0"],

@@ -1,7 +1,7 @@
 // WebAudio: vanilla Terraria SFX plus Lepus's boss theme looping for the whole session.
 // Browsers block autoplay, so everything starts on the first click/tap (unlock()).
 
-const SFX = ["click", "hop", "buy", "merge", "denied", "tick", "coin", "unlock", "grab"];
+const SFX = ["click", "hop", "buy", "merge", "denied", "tick", "coin", "unlock", "grab", "roar", "eat"];
 const MUSIC_SRC = "assets/music/lepus.mp3";
 const MUSIC_VOL = 0.45;
 const SFX_VOL = 0.55;
@@ -50,7 +50,7 @@ export class Sound {
   }
 
   // Terraria-style random pitch variation; minGap throttles rapid repeats of the same sound.
-  play(name, { vol = 1, pitch = 0.08, minGap = 0.035 } = {}) {
+  play(name, { vol = 1, pitch = 0.08, minGap = 0.035, rate = 1 } = {}) {
     const buf = this.buffers[name];
     if (!this.ctx || !buf || !this.sfxOn) return;
     const now = this.ctx.currentTime;
@@ -58,7 +58,7 @@ export class Sound {
     this.last[name] = now;
     const src = this.ctx.createBufferSource();
     src.buffer = buf;
-    src.playbackRate.value = 1 + (Math.random() * 2 - 1) * pitch;
+    src.playbackRate.value = rate * (1 + (Math.random() * 2 - 1) * pitch);
     const gain = this.ctx.createGain();
     gain.gain.value = vol;
     src.connect(gain).connect(this.sfxGain);

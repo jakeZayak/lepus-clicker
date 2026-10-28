@@ -4,7 +4,8 @@ import { TIERS } from "./sprites.js";
 
 export const YARD = { W: 760, H: 300, GROUND: 284, FENCE_L: 22, FENCE_R: 738 };
 const { W, GROUND, FENCE_L, FENCE_R } = YARD;
-const TOP = TIERS.length - 1; // Lepus Supreme: everything >= 10^30, at most 9 sprites shown
+const TOP = TIERS.length - 1; // Lepuszilla: everything >= 10^31
+export const TOP_SHOWN = 3; // Lepuszillas are huge: at most 3 in the yard, the rest as a ×N label
 const WINDOW = 5; // only the 5 highest tiers you own are in the yard
 const WINDOW_SCALE = [0.62, 0.74, 0.88, 1.02, 1.2]; // smallest visible tier -> biggest
 const G = 1100;
@@ -16,14 +17,14 @@ const digit = (n, t) => Math.floor(n / 10 ** t) % 10;
 export const topCount = (n) => Math.floor(n / 10 ** TOP);
 export const topTier = (n) => (n < 10 ? 0 : Math.min(TOP, Math.floor(Math.log10(n) + 1e-9)));
 export const windowLo = (n) => Math.max(0, topTier(n) - (WINDOW - 1));
-const want = (n, t) => (t < windowLo(n) ? 0 : t < TOP ? digit(n, t) : Math.min(9, topCount(n)));
+const want = (n, t) => (t < windowLo(n) ? 0 : t < TOP ? digit(n, t) : Math.min(TOP_SHOWN, topCount(n)));
 
 export class Yard {
   constructor() {
     this.ents = [];
     this.pending = []; // merge results waiting for their gather animation: { tier, x, timer }
     this.parts = [];
-    this.events = []; // "merge" | "split" | "fly", drained by main for sound
+    this.events = []; // "merge" | "split" | "fly" | "roar" | "stomp", drained by main for sound
     this.shown = null; // wallet value the sprites currently represent
     this.cooldown = 0;
     this.spawnPoint = { x: W / 2, y: -150 }; // spinner centre in yard coords, set by the renderer
@@ -115,6 +116,7 @@ export class Yard {
       e.pop = 0;
       this.ents.push(e);
       this.sparkle(e.x, 20, 8, "#fff3a0");
+      if (TIERS[t].zilla) this.events.push("roar");
     }
   }
 
@@ -143,7 +145,7 @@ export class Yard {
     this.ents.push(e);
     this.sparkle(p.x, GROUND - 30, 22, "#ffe66b");
     this.ring(p.x, GROUND - 30);
-    this.events.push("merge");
+    this.events.push(TIERS[p.tier].zilla ? "roar" : "merge");
   }
 
   split(t) {
@@ -199,7 +201,14 @@ export class Yard {
     let dir = Math.random() < 0.5 ? -1 : 1;
     if (e.x < FENCE_L + 120) dir = 1;
     else if (e.x > FENCE_R - 120) dir = -1;
-    e.vx = dir * rand(60, 150) * (1 - t * 0.07);
+    e.ground = false;
+    if (TIERS[t].zilla) {
+      // Lepuszilla doesn't hop, it stomps: short heavy steps that shake the screen on landing.
+      e.vx = dir * rand(40, 70);
+      e.vy = -rand(150, 200);
+      return;
+    }
+    e.vx = dir * rand(60, 150) * Math.max(0.3, 1 - t * 0.07);
     e.vy = -rand(220, 340) - 10 * t;
     e.ground = false;
   }
@@ -238,6 +247,7 @@ export class Yard {
           e.ground = true;
           e.land = 1;
           e.idle = rand(0.4, 2.4) + e.tier * 0.35;
+          if (TIERS[e.tier].zilla) (e.idle = rand(0.8, 2)), this.events.push("stomp");
         }
       } else {
         e.vx *= Math.max(0, 1 - 9 * dt);

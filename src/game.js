@@ -6,6 +6,14 @@ export const MOTHER_INTERVAL = 3; // seconds between each Mother Lepus auto-clic
 export const COST_GROWTH = 1.15;
 export const OFFLINE_CAP = 8 * 3600;
 
+// Lepus Pen: happiness (0-100) boosts Lepus per second and drains over HAPPY_DRAIN seconds;
+// feeding doubles income for FED_TIME seconds.
+export const HAPPY_BONUS = 0.25; // at 100% happiness, before Pen upgrades
+export const HAPPY_DRAIN = 20 * 60;
+export const FED_TIME = 60, FED_MULT = 2, FEED_COOLDOWN = 5 * 60;
+export const EGG_COOLDOWN = 20, ROAR_COOLDOWN = 6;
+export const ZILLA_TIER = 31; // the yard tier where Lepuszilla shows up (10^31 Lepus)
+
 const nice = (x) => {
   const p = Math.pow(10, Math.floor(Math.log10(x)) - 1);
   return Math.round(x / p) * p;
@@ -29,6 +37,14 @@ const LATER_BUILDINGS = [
   ["bunniverse", "Bunniverse", "solar", 220],
   ["engine", "Infinite Carrot Engine", "lepus_bag", 320],
   ["singularity", "The Lepus Singularity", "solar", 120],
+  ["nursery", "Nebula Nursery", "small_egg", 300],
+  ["quasar", "Quasar Carrot Farm", "lepus_bag", 260],
+  ["nest", "Lepuszilla Nest", "lepuszilla", 0],
+  ["hyperhop", "Hyper Hop Drive", "lepus_epic", 40],
+  ["meadow", "Multiverse Meadow", "bunny", 90],
+  ["eggsistential", "Eggsistential Engine", "big_egg", 200],
+  ["omegaburrow", "Omega Burrow", "lepus_bag", 330],
+  ["ascension", "Lepus Ascension", "lepus_epic", 180],
 ];
 
 export const BUILDINGS = [
@@ -49,16 +65,23 @@ const GRADE_AT = [1, 10, 25, 50, 100, 150, 200, 250];
 const GRADE_COST = [10, 50, 500, 5e4, 5e6, 5e8, 5e10, 5e12];
 export const GRADE_COLORS = ["#cd7f32", "#c8ccd6", "#ffd75a", "#9be7ff", "#b9f2ff", "#ff5a7a", "#b07cff", "#ffffff"];
 
-const EGG_NAMES = ["Golden Egg", "Ruby Egg", "Emerald Egg", "Sapphire Egg", "Amethyst Egg", "Diamond Egg", "Lunar Egg", "Nebula Egg", "Cosmic Egg", "Eternal Egg"];
+const EGG_NAMES = ["Golden Egg", "Ruby Egg", "Emerald Egg", "Sapphire Egg", "Amethyst Egg", "Diamond Egg", "Lunar Egg", "Nebula Egg", "Cosmic Egg", "Eternal Egg", "Quasar Egg", "Void Egg", "Kaiju Egg", "Omega Egg", "Ascended Egg"];
 // Click scaling: Paws multiply the click; Carrots add a share of Lepus per second to every click,
 // so tapping keeps pace with the buildings all game long.
 const PAWS = [
   ["Fuzzy Paws", 1000, 2], ["Springy Paws", 2e4, 2], ["Golden Paws", 5e5, 3], ["Ruby Paws", 1e7, 2], ["Diamond Paws", 5e8, 3],
   ["Lunar Paws", 5e10, 2], ["Nebula Paws", 5e12, 3], ["Cosmic Paws", 5e14, 2], ["Eternal Paws", 5e16, 3], ["Supreme Paws", 5e18, 5],
+  ["Quasar Paws", 5e20, 2], ["Void Paws", 5e22, 3], ["Kaiju Paws", 5e24, 2], ["Omega Paws", 5e26, 3], ["Ascended Paws", 5e28, 5],
 ];
 const CARROTS = [
   ["Crunchy Carrot", 1e6, 0.01], ["Star Carrot", 1e8, 0.01], ["Sky Carrot", 1e10, 0.01], ["Lunar Carrot", 1e12, 0.02], ["Nebula Carrot", 1e14, 0.02],
   ["Vortex Carrot", 1e16, 0.02], ["Cosmic Carrot", 1e18, 0.02], ["Galaxy Carrot", 1e20, 0.02], ["Eternal Carrot", 1e22, 0.02], ["Supreme Carrot", 1e24, 0.02],
+  ["Quasar Carrot", 1e26, 0.02], ["Void Carrot", 1e28, 0.02], ["Kaiju Carrot", 1e30, 0.03], ["Omega Carrot", 1e32, 0.03], ["Ascended Carrot", 1e34, 0.05],
+];
+// Pen upgrades: each raises how much happiness can add to Lepus per second.
+const PEN_UPS = [
+  ["Soft Brush", 500, "brush"], ["Carrot Treats", 5e4, "treats"], ["Cozy Hay Bed", 5e6, "hay"], ["Lepus Spa", 5e9, "spa"],
+  ["Bouncy Castle Pen", 5e13, "castle"], ["Royal Pillows", 5e18, "pillows"], ["Rainbow Meadow", 5e24, "meadow"],
 ];
 const pct = (x) => `${Math.round(x * 100)}%`;
 
@@ -72,6 +95,16 @@ PAWS.forEach(([name, cost, x], k) =>
 );
 CARROTS.forEach(([name, cost, share], k) =>
   UPGRADES.push({ id: `carrot${k}`, name, cost, clickLps: share, icon: "lepus_bag", hue: 40 * k, desc: `Clicks also earn ${pct(share)} of your Lepus per second.` })
+);
+PEN_UPS.forEach(([name, cost, id], k) =>
+  UPGRADES.push({ id: `pen_${id}`, name, cost, happy: 0.25, icon: "small_lepus", hue: k * 50, desc: "Happy Pen Lepuses give +25% more Lepus per second." })
+);
+// Lepuszilla's gifts unlock only once Lepuszilla has stomped into your yard.
+UPGRADES.push(
+  { id: "zilla_carrot", name: "Radioactive Carrot", cost: 1e32, global: 10, needTier: ZILLA_TIER, icon: "lepuszilla", hue: 90, desc: "Lepuszilla's snack. All Lepus per second ×10." },
+  { id: "zilla_spikes", name: "Crystal Spikes", cost: 5e32, click: 10, needTier: ZILLA_TIER, icon: "lepuszilla", desc: "Lepus per click ×10." },
+  { id: "zilla_roar", name: "Mega Roar", cost: 2e33, roar: 10, needTier: ZILLA_TIER, icon: "lepuszilla", hue: 200, desc: "Poking Lepuszilla in the Pen pays 10× more." },
+  { id: "zilla_heart", name: "Lepuszilla's Heart", cost: 1e35, global: 10, needTier: ZILLA_TIER, icon: "lepuszilla", hue: 300, desc: "Lepuszilla loves you. All Lepus per second ×10." },
 );
 // The first egg keeps its old id so existing saves carry over.
 EGG_NAMES.forEach((name, k) =>
@@ -94,7 +127,10 @@ for (const b of BUILDINGS)
 UPGRADES.sort((a, b) => a.cost - b.cost);
 
 export function newState() {
-  return { balance: 0, lifetime: 0, clicks: 0, owned: {}, revealed: {}, motherAcc: 0, buyAmount: 1, musicOn: true, sfxOn: true, savedAt: Date.now() };
+  return {
+    balance: 0, lifetime: 0, clicks: 0, owned: {}, revealed: {}, motherAcc: 0, buyAmount: 1, musicOn: true, sfxOn: true, savedAt: Date.now(),
+    happy: 0, fedUntil: 0, fedAt: 0, eggAt: 0, maxTier: 0, zillaSeen: false,
+  };
 }
 
 export const owned = (s, id) => s.owned[id] || 0;
@@ -103,34 +139,41 @@ export const owned = (s, id) => s.owned[id] || 0;
 let cacheV = -1, cacheS = null, cache = null;
 function derived(s) {
   if (cacheS === s && cacheV === s._v && cache) return cache;
-  const d = { click: 1, clickLps: 0, global: 1, mult: {} };
+  const d = { click: 1, clickLps: 0, global: 1, mult: {}, happy: HAPPY_BONUS, roar: 1 };
   for (const u of UPGRADES) {
     if (!owned(s, u.id)) continue;
     if (u.click) d.click *= u.click;
     if (u.clickLps) d.clickLps += u.clickLps;
     if (u.global) d.global *= u.global;
+    if (u.happy) d.happy += u.happy;
+    if (u.roar) d.roar *= u.roar;
     if (u.building) d.mult[u.building] = (d.mult[u.building] || 1) * 2;
   }
   d.buildingLps = 0;
   for (const b of BUILDINGS) if (b.lps) d.buildingLps += b.lps * owned(s, b.id) * (d.mult[b.id] || 1);
   d.buildingLps *= d.global;
-  d.clickValue = d.click + d.buildingLps * d.clickLps;
-  d.motherClick = d.clickValue * d.global * (d.mult.mother || 1);
   cacheS = s;
   cacheV = s._v;
   cache = d;
   return d;
 }
 
-export const buildingLps = (s) => derived(s).buildingLps;
-export const clickValue = (s) => derived(s).clickValue;
-export const motherClickValue = (s) => derived(s).motherClick;
+// Pen bonuses change over time, so they sit outside the purchase cache.
+export const happyCap = (s) => derived(s).happy;
+export const happyBonus = (s) => (derived(s).happy * (s.happy || 0)) / 100;
+export const isFed = (s) => Date.now() < (s.fedUntil || 0);
+export const penBoost = (s) => (1 + happyBonus(s)) * (isFed(s) ? FED_MULT : 1);
+export const roarMult = (s) => derived(s).roar;
+
+export const buildingLps = (s) => derived(s).buildingLps * penBoost(s);
+export const clickValue = (s) => derived(s).click + buildingLps(s) * derived(s).clickLps;
+export const motherClickValue = (s) => clickValue(s) * derived(s).global * (derived(s).mult.mother || 1);
 export const totalLps = (s) => buildingLps(s) + (owned(s, "mother") * motherClickValue(s)) / MOTHER_INTERVAL;
 
 // What one building of this type adds per second right now (for the shop text).
 export function eachLps(s, b) {
   const d = derived(s);
-  return b.mother ? d.motherClick / MOTHER_INTERVAL : b.lps * (d.mult[b.id] || 1) * d.global;
+  return b.mother ? motherClickValue(s) / MOTHER_INTERVAL : b.lps * (d.mult[b.id] || 1) * d.global * penBoost(s);
 }
 
 // Cost of the next n buildings: geometric series of base * 1.15^owned.
@@ -146,6 +189,7 @@ export function earn(s, n) {
 
 export function upgradeAvailable(s, u) {
   if (owned(s, u.id)) return false;
+  if (u.needTier && (s.maxTier || 0) < u.needTier) return false;
   return u.building ? owned(s, u.building) >= u.need : s.lifetime >= u.cost * 0.5;
 }
 
@@ -168,6 +212,7 @@ export function buyUpgrade(s, u) {
 
 // Advances income by dt seconds. Returns how many Mother auto-clicks fired (for visuals).
 export function tick(s, dt) {
+  s.happy = Math.max(0, (s.happy || 0) - (dt * 100) / HAPPY_DRAIN);
   earn(s, buildingLps(s) * dt);
   const mothers = owned(s, "mother");
   if (!mothers) return 0;
@@ -191,24 +236,26 @@ export function reveal(s) {
   return fresh;
 }
 
-const BIG = ["million", "billion", "trillion", "quadrillion", "quintillion", "sextillion", "septillion", "octillion", "nonillion", "decillion", "undecillion", "duodecillion"];
-const SHORT = ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc", "Ud", "Dd"];
+// Scientific notation from a million up: 1.234e6, 5.000e21...
+function sci(n, digits) {
+  const [m, e] = n.toExponential(digits).split("e");
+  return `${m}e${Number(e)}`;
+}
 
 export function fmt(n) {
   n = Math.floor(n);
   if (n < 1e6) return n.toLocaleString("en-US");
-  const e = Math.floor(Math.log10(n) / 3) - 2;
-  if (e >= BIG.length) return n.toExponential(3).replace("e+", "e");
-  return (n / Math.pow(1000, e + 2)).toFixed(3) + " " + BIG[e];
+  return sci(n, 3);
 }
 
-// Compact form for small labels: 1.5K, 20M, 3Qa...
+// Compact form for small labels: 999, 1.5K, 250K, 1.5e6...
 export function fmtShort(n) {
   if (n < 1000) return String(Math.floor(n));
-  const e = Math.floor(Math.log10(n) / 3);
-  if (e >= SHORT.length) return n.toExponential(1).replace("e+", "e");
-  const v = n / Math.pow(1000, e);
-  return (v < 10 ? +v.toFixed(1) : Math.floor(v)) + SHORT[e];
+  if (n < 1e6) {
+    const v = n / 1000;
+    return (v < 10 ? +v.toFixed(1) : Math.floor(v)) + "K";
+  }
+  return sci(n, 1);
 }
 
 export function fmtRate(n) {

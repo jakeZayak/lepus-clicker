@@ -34,6 +34,19 @@
       <button id="spin" aria-label="Click the Lepus"></button>
       <div id="legend" class="panel"></div>
       <div id="hint">Click the Lepus!</div>
+      <nav id="modeTabs">
+        <button data-mode="yard" aria-pressed="true">🥚 Clicker</button>
+        <button data-mode="pen" aria-pressed="false">🐰 Pen<span id="penDot"></span></button>
+      </nav>
+      <div id="penBar" class="panel" hidden>
+        <div class="happy" title="Happy Lepuses earn more. Pet them, feed them and play with them!">
+          <span class="h">♥</span><div class="meter"><i id="happyFill"></i></div><span id="happyText"></span>
+        </div>
+        <div class="pen-buttons">
+          <button id="feedBtn">🥕 Feed</button>
+          <button id="eggBtn">🥚 Toss egg</button>
+        </div>
+      </div>
     </main>
 
     <aside id="shop" class="panel">

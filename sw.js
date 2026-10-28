@@ -1,6 +1,6 @@
 // Offline support: precache the whole game, then serve from cache and refresh in the background.
 // Bump VERSION when files are added or removed.
-const VERSION = "lepus-v2";
+const VERSION = "lepus-v3";
 const FILES = [
   "./",
   "index.html",
@@ -9,6 +9,7 @@ const FILES = [
   "src/audio.js",
   "src/game.js",
   "src/main.js",
+  "src/pen.js",
   "src/render.js",
   "src/save.js",
   "src/sprites.js",
@@ -21,9 +22,11 @@ const FILES = [
   "assets/sfx/click.wav",
   "assets/sfx/coin.wav",
   "assets/sfx/denied.wav",
+  "assets/sfx/eat.wav",
   "assets/sfx/grab.wav",
   "assets/sfx/hop.wav",
   "assets/sfx/merge.wav",
+  "assets/sfx/roar.wav",
   "assets/sfx/tick.wav",
   "assets/sfx/unlock.wav",
   "assets/sprites/big_egg.png",
@@ -32,6 +35,7 @@ const FILES = [
   "assets/sprites/lepus.png",
   "assets/sprites/lepus_bag.png",
   "assets/sprites/lepus_epic.png",
+  "assets/sprites/lepuszilla.png",
   "assets/sprites/music_box.png",
   "assets/sprites/small_egg.png",
   "assets/sprites/small_lepus.png",

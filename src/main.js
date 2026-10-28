@@ -1,7 +1,8 @@
 // Lepus Clicker: boot, input, HUD/shop DOM and the requestAnimationFrame loop.
 import { loadSprites, sheets, TIERS, iconURL } from "./sprites.js";
 import * as G from "./game.js";
-import { Yard, topCount, windowLo } from "./yard.js";
+import { Yard, topCount, topTier, windowLo, TOP_SHOWN } from "./yard.js";
+import { Pen } from "./pen.js";
 import { Renderer, Spinner } from "./render.js";
 import { Sound } from "./audio.js";
 import * as Save from "./save.js";
@@ -10,7 +11,8 @@ const $ = (id) => document.getElementById(id);
 const cv = $("cv"), spinBtn = $("spin");
 
 let state = Save.load() || G.newState();
-const yard = new Yard(), spinner = new Spinner(), renderer = new Renderer(cv), sound = new Sound();
+const yard = new Yard(), spinner = new Spinner(), renderer = new Renderer(cv), sound = new Sound(), pen = new Pen();
+let mode = "yard"; // "yard" (the clicker) or "pen"
 sound.musicOn = state.musicOn;
 sound.sfxOn = state.sfxOn;
 
@@ -24,6 +26,7 @@ function layout() {
   yard.spawnPoint = renderer.toYard(sp.x, sp.y);
 }
 new ResizeObserver(layout).observe(cv);
+new ResizeObserver(() => (pen.bottomPad = $("penBar").offsetHeight + 16)).observe($("penBar"));
 layout();
 
 // ---------- toast ----------
@@ -42,6 +45,7 @@ function duration(sec) {
 }
 
 function grantOffline(sec) {
+  state.happy = Math.max(0, (state.happy || 0) - (sec * 100) / G.HAPPY_DRAIN);
   const gain = G.totalLps(state) * Math.min(G.OFFLINE_CAP, sec);
   if (gain < 1) return;
   G.earn(state, gain);
@@ -177,11 +181,11 @@ function refreshHud() {
   $("clickVal").textContent = G.fmtRate(G.clickValue(state)).replace(/\.0$/, "");
   // Legend: the 5 tiers currently in the yard, smallest to biggest.
   const n = Math.floor(state.balance), lo = windowLo(n), hi = Math.min(TIERS.length - 1, lo + 4), top = topCount(n);
-  const key = `${lo}|${top > 9 ? top : 0}`;
+  const key = `${lo}|${top > TOP_SHOWN ? top : 0}`;
   if (key !== legendKey) {
     legendKey = key;
     $("legend").innerHTML = TIERS.slice(lo, hi + 1)
-      .map((t, i) => `<span title="${t.name}"><img src="${t.icon}" alt="${t.name}">${G.fmtShort(t.value)}${lo + i === TIERS.length - 1 && top > 9 ? ` <span class="x">×${G.fmtShort(top)}</span>` : ""}</span>`)
+      .map((t, i) => `<span title="${t.name}"><img src="${t.icon}" alt="${t.name}">${G.fmtShort(t.value)}${lo + i === TIERS.length - 1 && top > TOP_SHOWN ? ` <span class="x">×${G.fmtShort(top)}</span>` : ""}</span>`)
       .join("");
   }
 }
@@ -254,6 +258,120 @@ spinBtn.addEventListener("click", (e) => {
 // iPad/iPhone: audio may only start from these events, not pointerdown.
 for (const ev of ["pointerup", "touchend", "click"]) document.addEventListener(ev, () => sound.unlock(), { passive: true });
 
+// ---------- Lepus Pen ----------
+function setMode(m) {
+  mode = m;
+  document.body.classList.toggle("pen", m === "pen");
+  $("penBar").hidden = m !== "pen";
+  for (const btn of document.querySelectorAll("#modeTabs button")) btn.setAttribute("aria-pressed", String(btn.dataset.mode === m));
+  if (m === "pen") {
+    pen.bottomPad = $("penBar").offsetHeight + 16;
+    updateRoster();
+    if (!state.penVisited) {
+      state.penVisited = true;
+      toast("Welcome to the Lepus Pen! Tap a Lepus to pet it. Happy Lepuses earn more Lepus.");
+    }
+    refreshPen();
+  }
+}
+for (const btn of document.querySelectorAll("#modeTabs button"))
+  btn.addEventListener("click", () => {
+    sound.unlock();
+    sound.play("tick");
+    setMode(btn.dataset.mode);
+  });
+
+function updateRoster() {
+  pen.setRoster(state.maxTier || 0, G.owned(state, "mother"), (state.maxTier || 0) >= G.ZILLA_TIER);
+}
+
+const addHappy = (n) => (state.happy = Math.min(100, (state.happy || 0) + n));
+let roarReadyAt = 0;
+
+cv.addEventListener("pointerdown", (e) => {
+  if (mode !== "pen") return;
+  e.preventDefault();
+  sound.unlock();
+  const w = pen.toWorld(e.offsetX, e.offsetY), hit = pen.pick(w.x, w.y);
+  if (!hit) return;
+  if (hit.zilla) {
+    if (performance.now() < roarReadyAt) return sound.play("hop", { vol: 0.5, rate: 0.5, minGap: 0.3 });
+    roarReadyAt = performance.now() + G.ROAR_COOLDOWN * 1000;
+    const v = Math.max(10 * G.clickValue(state), 10 * G.totalLps(state)) * G.roarMult(state);
+    G.earn(state, v);
+    addHappy(5);
+    pen.roar();
+    pen.addText("+" + G.fmt(v), w.x, w.y - 40, "#ffaaf4");
+    sound.play("roar", { vol: 0.9, pitch: 0.05 });
+    return;
+  }
+  const c = hit.critter;
+  if (c.petCd > 0) return;
+  const v = G.clickValue(state);
+  G.earn(state, v);
+  state.clicks++;
+  addHappy(3);
+  pen.pet(c);
+  pen.addText("+" + G.fmt(v), c.x, w.y - 30);
+  sound.play("grab", { vol: 0.7, pitch: 0.2 });
+});
+
+$("feedBtn").addEventListener("click", () => {
+  sound.unlock();
+  const now = Date.now();
+  if (now - (state.fedAt || 0) < G.FEED_COOLDOWN * 1000) return sound.play("denied", { vol: 0.7 });
+  state.fedAt = now;
+  state.fedUntil = now + G.FED_TIME * 1000;
+  addHappy(30);
+  pen.dropCarrots(pen.critters.length + 3);
+  sound.play("coin", { vol: 0.6 });
+  toast(`Carrots! Well-fed Lepuses earn ×${G.FED_MULT} for ${G.FED_TIME} seconds.`);
+  refreshPen();
+  Save.save(state);
+});
+
+$("eggBtn").addEventListener("click", () => {
+  sound.unlock();
+  const now = Date.now();
+  if (now - (state.eggAt || 0) < G.EGG_COOLDOWN * 1000) return sound.play("denied", { vol: 0.7 });
+  state.eggAt = now;
+  pen.tossEgg();
+  sound.play("hop", { vol: 0.6 });
+  refreshPen();
+});
+
+function handlePenEvents() {
+  for (const ev of pen.events.splice(0)) {
+    const c = ev.critter;
+    if (ev.type === "eat") {
+      addHappy(2);
+      sound.play("eat", { vol: 0.6, minGap: 0.12, pitch: 0.15 });
+    } else if (ev.type === "egg") {
+      const v = Math.max(20 * G.clickValue(state), 15 * G.totalLps(state));
+      G.earn(state, v);
+      addHappy(10);
+      pen.addText(`${c.name} caught it! +${G.fmt(v)}`, Math.min(560, Math.max(200, c.x)), 200);
+      sound.play("unlock", { vol: 0.8 });
+    }
+  }
+}
+
+const mmss = (sec) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
+function refreshPen() {
+  const now = Date.now(), feedLeft = G.FEED_COOLDOWN - (now - (state.fedAt || 0)) / 1000, eggLeft = G.EGG_COOLDOWN - (now - (state.eggAt || 0)) / 1000;
+  $("penDot").textContent = feedLeft <= 0 && (state.happy || 0) < 50 ? "!" : "";
+  if (mode !== "pen") return;
+  const happy = state.happy || 0;
+  $("happyFill").style.width = `${happy}%`;
+  let txt = `${Math.round(happy)}% · +${Math.round(G.happyBonus(state) * 100)}% Lepus/s`;
+  if (G.isFed(state)) txt += ` · 🥕 ×${G.FED_MULT} ${mmss((state.fedUntil - now) / 1000)}`;
+  $("happyText").textContent = txt;
+  $("feedBtn").disabled = feedLeft > 0;
+  $("feedBtn").textContent = feedLeft > 0 ? `🥕 ${mmss(feedLeft)}` : "🥕 Feed";
+  $("eggBtn").disabled = eggLeft > 0;
+  $("eggBtn").textContent = eggLeft > 0 ? `🥚 ${Math.ceil(eggLeft)}s` : "🥚 Toss egg";
+}
+
 // ---------- persistence ----------
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) Save.save(state);
@@ -273,6 +391,8 @@ const SOUND_FOR = {
   merge: ["merge", { vol: 0.85, minGap: 0.08 }],
   fly: ["hop", { vol: 0.22, minGap: 0.09, pitch: 0.15 }],
   split: ["coin", { vol: 0.5, minGap: 0.1 }],
+  roar: ["roar", { vol: 0.9, minGap: 1, pitch: 0.05 }],
+  stomp: ["hop", { vol: 0.7, minGap: 0.2, pitch: 0.05, rate: 0.45 }],
 };
 
 let last = performance.now(), uiTimer = 0, saveTimer = 0, motherGain = 0, motherTimer = 0;
@@ -297,9 +417,16 @@ function frame(now) {
   yard.sync(Math.floor(state.balance));
   yard.update(dt);
   spinner.update(dt);
-  for (const ev of yard.events.splice(0)) sound.play(...SOUND_FOR[ev]);
+  pen.update(dt);
+  handlePenEvents();
+  for (const ev of yard.events.splice(0)) {
+    if (ev === "roar") renderer.shake = 1.2;
+    if (ev === "stomp") renderer.shake = Math.max(renderer.shake, 0.5);
+    if (mode === "yard" || ev === "roar") sound.play(...SOUND_FOR[ev]);
+  }
 
-  renderer.draw(dt, state, yard, spinner, G.owned(state, "mother"));
+  if (mode === "pen") renderer.drawPen(dt, pen);
+  else renderer.draw(dt, state, yard, spinner, G.owned(state, "mother"));
 
   if ((uiTimer -= dt) <= 0) {
     uiTimer = 0.1;
@@ -307,8 +434,15 @@ function frame(now) {
       toast(`New building: ${b.name}!`);
       sound.play("unlock", { vol: 0.8 });
     }
+    state.maxTier = Math.max(state.maxTier || 0, topTier(Math.floor(state.balance)));
+    if (state.maxTier >= G.ZILLA_TIER && !state.zillaSeen) {
+      state.zillaSeen = true;
+      toast("LEPUSZILLA HAS AWOKEN! Visit it in the Pen.");
+    }
+    updateRoster();
     refreshHud();
     refreshShop();
+    refreshPen();
   }
   if ((saveTimer += dt) > 10) {
     saveTimer = 0;
@@ -322,4 +456,4 @@ requestAnimationFrame(frame);
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 
 // Console helpers for testing: lepus.give(1e6)
-window.lepus = { get state() { return state; }, yard, sound, G, give: (n) => G.earn(state, n), dirty: () => (state._v = (state._v || 0) + 1) };
+window.lepus = { get state() { return state; }, yard, pen, sound, G, setMode, give: (n) => G.earn(state, n), dirty: () => (state._v = (state._v || 0) + 1) };

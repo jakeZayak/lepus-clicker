@@ -100,7 +100,7 @@ img { image-rendering: pixelated; }
 #hint {
   position: absolute;
   left: 50%;
-  top: 10px;
+  top: 52px;
   transform: translateX(-50%);
   padding: 4px 12px;
   background: var(--panel-dark);
@@ -128,6 +128,44 @@ img { image-rendering: pixelated; }
 #legend span { display: flex; align-items: center; gap: 4px; }
 #legend img { height: 18px; }
 #legend .x { color: var(--gold); }
+
+/* Clicker / Pen switch */
+#modeTabs { position: absolute; left: 8px; top: 8px; display: flex; gap: 6px; z-index: 2; }
+#modeTabs button {
+  padding: 5px 12px;
+  background: var(--panel-dark);
+  border: 2px solid rgba(142, 160, 255, 0.6);
+  border-radius: 6px;
+  font-weight: 700;
+  position: relative;
+}
+#modeTabs button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+#penDot:not(:empty) { position: absolute; right: -5px; top: -5px; width: 12px; height: 12px; border-radius: 50%; background: #ff4f8b; border: 2px solid #fff; font-size: 0; }
+body.pen #spin, body.pen #legend, body.pen #hint { display: none; }
+body.pen #cv { cursor: pointer; }
+
+#penBar {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  width: min(560px, calc(100% - 16px));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  flex-wrap: wrap;
+}
+#penBar[hidden] { display: none; }
+.happy { display: flex; align-items: center; gap: 8px; flex: 1 1 220px; min-width: 0; }
+.happy .h { color: #ff4f8b; font-size: 22px; text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.4); }
+.meter { flex: 1; height: 14px; background: rgba(0, 0, 0, 0.4); border: 2px solid rgba(255, 255, 255, 0.4); border-radius: 4px; overflow: hidden; }
+.meter i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ff4f8b, #ffb8d9); transition: width 0.3s; }
+#happyText { font-size: 13px; white-space: nowrap; color: var(--pink); }
+.pen-buttons { display: flex; gap: 6px; }
+.pen-buttons button { padding: 6px 12px; background: var(--slot); border: 2px solid var(--gold); border-radius: 6px; font-weight: 700; white-space: nowrap; }
+.pen-buttons button:hover { background: var(--slot-hover); }
+.pen-buttons button:disabled { border-color: rgba(142, 160, 255, 0.5); opacity: 0.6; cursor: default; }
 
 /* Shop */
 #shop {
@@ -238,5 +276,7 @@ dialog#menu h2 { margin: 0 0 6px; color: var(--gold); }
   body.shop-open #shopToggle .chev { transform: rotate(180deg); }
   #shopBadge:not(:empty) { font-size: 13px; color: #241b00; background: var(--gold); border-radius: 10px; padding: 1px 8px; }
   #legend { font-size: 11px; gap: 6px; }
+  #modeTabs button { padding: 4px 9px; font-size: 14px; }
+  .pen-buttons button { padding: 5px 9px; font-size: 14px; }
   #legend img { height: 14px; }
 }

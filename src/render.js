@@ -53,6 +53,7 @@ export class Renderer {
     this.cv = cv;
     this.ctx = cv.getContext("2d");
     this.time = 0;
+    this.shake = 0; // screen shake from Lepuszilla's stomps and roars, decays to 0
     this.clouds = Array.from({ length: 5 }, (_, i) => ({ x: Math.random(), y: 0.08 + Math.random() * 0.3, s: 0.6 + Math.random() * 0.8, v: 0.004 + Math.random() * 0.006, i }));
   }
 
@@ -85,10 +86,21 @@ export class Renderer {
     const g = this.ctx;
     g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     g.imageSmoothingEnabled = false;
+    this.shake = Math.max(0, this.shake - dt * 2.5);
+    if (this.shake > 0) g.translate((Math.random() * 2 - 1) * this.shake * 6, (Math.random() * 2 - 1) * this.shake * 4);
     this.drawSky(g);
     this.drawSpinner(g, spinner, mothers);
     this.drawYard(g, yard);
     this.drawTexts(g, spinner);
+  }
+
+  // The Lepus Pen screen draws itself; it just borrows the canvas and drawSheet.
+  drawPen(dt, pen) {
+    this.time += dt;
+    const g = this.ctx;
+    g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    g.imageSmoothingEnabled = false;
+    pen.draw(g, this.w, this.h, this.drawSheet.bind(this));
   }
 
   drawSky(g) {
